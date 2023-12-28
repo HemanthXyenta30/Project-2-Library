@@ -1,0 +1,90 @@
+								Project-2 Library 
+
+/* =================== STORED PROCEDURE QUERY QUESTIONS =================================== */
+
+/* #1- How many copies of the book titled "The Lost Tribe" are owned by the library branch whose name is "Sharpstown"? */
+Ans: 	create procedure TheLostTribe(@BookTitle varchar(40),@BranchName varchar(40))
+	as
+	begin
+	select bc.book_copies_No_Of_Copies as 'Copies of the Book',b.book_Title,lb.library_branch_BranchName 
+	from tbl_book b
+	inner join tbl_book_copies bc on b.book_BookID=bc.book_copies_BookID
+	inner join tbl_library_branch lb on bc.book_copies_BranchID=lb.library_branch_BranchID
+	where b.book_Title=@BookTitle and lb.library_branch_BranchName=@BranchName
+	end
+	exec TheLostTribe 'The Lost Tribe','Sharpstown'
+
+
+/* #2- How many copies of the book titled "The Lost Tribe" are owned by each library branch? */
+Ans: alter function Books(@BookTitle varchar(40))
+	returns table
+	as
+	return (
+	select bc.book_copies_No_Of_Copies as 'Copies of the Book',b.book_Title,lb.library_branch_BranchID,lb.library_branch_BranchName,lb.library_branch_BranchAddress
+	from tbl_book b
+	inner join tbl_book_copies bc on b.book_BookID=bc.book_copies_BookID
+	inner join tbl_library_branch lb on bc.book_copies_BranchID=lb.library_branch_BranchID
+	where b.book_Title=@BookTitle
+	group by bc.book_copies_No_Of_Copies,b.book_Title,lb.library_branch_BranchID,lb.library_branch_BranchName,lb.library_branch_BranchAddress
+	)
+
+	select * from Books('The Lost Tribe')
+
+/* #3- Retrieve the names of all borrowers who do not have any books checked out. */
+Ans: 	create procedure Borrowers
+	as 
+	begin
+	select tb.borrower_CardNo,tb.borrower_BorrowerName from tbl_borrower tb
+	left join tbl_book_loans tbl on tb.borrower_CardNo=tbl.book_loans_CardNo
+	where tbl.book_loans_CardNo is null
+	end
+	exec Borrowers
+
+/* #4- For each book that is loaned out from the "Sharpstown" branch and whose DueDate is today, retrieve the book title, the borrower's name, and the borrower's address.  */
+Ans: 	create function Books4(@BranchName varchar(40),@DueDate date)
+	returns table
+	as
+	return (select b.book_Title,tb.borrower_BorrowerName,tb.borrower_BorrowerAddress,tbl.book_loans_DueDate,tlb.library_branch_BranchName
+	from tbl_book b
+	inner join tbl_book_loans tbl on b.book_BookID=tbl.book_loans_BookID
+	inner join tbl_library_branch tlb on tbl.book_loans_BranchID=tlb.library_branch_BranchID
+	inner join tbl_borrower tb on tbl.book_loans_CardNo=tb.borrower_CardNo
+	where tlb.library_branch_BranchName=@BranchName and tbl.book_loans_DueDate=@DueDate)
+	
+	select * from Books4('Sharpstown',convert(varchar,getdate(),101))
+	
+
+/* #5- For each library branch, retrieve the branch name and the total number of books loaned out from that branch.  */
+Ans: 	create procedure LibrBranch
+	as
+	begin
+	select tlb.library_branch_BranchName,count(tbl.book_loans_DateOut) as "Total Number of books loaned out from that branch" from tbl_library_branch tlb
+	inner join tbl_book_loans tbl on tlb.library_branch_BranchID=tbl.book_loans_BranchID
+	group by tlb.library_branch_BranchName
+	end
+
+	exec LibrBranch
+
+/* #6- Retrieve the names, addresses, and number of books checked out for all borrowers who have more than five books checked out. */
+Ans: create function Checkedout(@noofbooks int)
+	returns table
+	as
+	return (select tb.borrower_BorrowerName,tb.borrower_BorrowerAddress,count(tbl.book_loans_DateOut) as "More Than Five Books Checked Out" from tbl_borrower tb
+		inner join tbl_book_loans tbl on tb.borrower_CardNo=tbl.book_loans_CardNo group by tb.borrower_BorrowerName,tb.borrower_BorrowerAddress
+		having count(tbl.book_loans_DateOut)>@noofbooks)
+
+	select * from Checkedout(5)
+
+
+/* #7- For each book authored by "Stephen King", retrieve the title and the number of copies owned by the library branch whose name is "Central".*/
+Ans: create procedure BookAuthored(@AuthorName varchar(45),@BranchName varchar(30))
+	as
+	begin
+	select tba.book_authors_AuthorName,b.book_Title,tlb.library_branch_BranchName,tbc.book_copies_No_Of_Copies from tbl_book_authors tba
+	join tbl_book b on tba.book_authors_BookID=b.book_BookID
+	join tbl_book_copies tbc on b.book_BookID=tbc.book_copies_BookID
+	join tbl_library_branch tlb on tbc.book_copies_BranchID=tlb.library_branch_BranchID
+	where tba.book_authors_AuthorName=@AuthorName and tlb.library_branch_BranchName=@BranchName
+	end
+
+	exec BookAuthored 'Stephen King','Central'
